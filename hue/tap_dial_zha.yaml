@@ -1,0 +1,636 @@
+blueprint:
+  name: Philips Tap Dial Switch ZHA
+  description: |
+    Fully featured automation for controlling the four button Philips Hue Tap Dial Switch via Zigbee Home Automation
+
+    Dial and Long Presses are supported and will control all lights currently turned on that are designated with "Allow Dimming"
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    remote:
+      name: Philips Hue Tap Switch
+      selector:
+        device:
+          filter:
+            integration: zha
+            manufacturer: Signify Netherlands B.V.
+            model: RDM002
+          multiple: false
+    scene_cycle_timeout:
+      name: Scene Cycle Timeout
+      description: Time in seconds to register multiple presses for scene cycling
+      default: 3
+      selector:
+        number:
+          max: 5
+          min: 1
+
+    dim_scale:
+      name: Dimming Scale
+      description:
+        A multiplier applied to the value received from the button to either slow or quicken dimming.
+      default: 1.0
+      selector:
+        number:
+          min: 0.1
+          max: 3.0
+          step: 0.05
+          mode: slider
+
+    first_button_light:
+      name: First Button
+      description: The light(s) to control with first button
+      <<: &button_light
+        selector:
+          entity:
+            filter:
+              domain: light
+            multiple: true
+    first_button_allow_dimming:
+      name: Allow Dimming
+      default: true
+      selector:
+        boolean:
+    first_button_scene_cycle:
+      name: First Button Scenes
+      description: Optional scenes to cycle through when pressing the first button multiple times
+      collapsed: true
+      input:
+        first_button_scene_one:
+          name: Scene One
+          <<: &scene_input
+            default: None
+            selector:
+              entity:
+                filter:
+                  domain: scene
+        first_button_scene_two:
+          name: Scene Two
+          <<: *scene_input
+        first_button_scene_three:
+          name: Scene Three
+          <<: *scene_input
+        first_button_scene_four:
+          name: Scene Four
+          <<: *scene_input
+
+    first_button_actions:
+      name: First Button Actions
+      <<: &button_actions_input_section
+        description: Actions to perform before and after toggling the light
+        collapsed: true
+      input:
+        first_button_actions_before_on:
+          name: Before Turn On
+          description: Actions to perform before turning on the light
+          <<: &button_action_config
+            default: []
+            selector:
+              action:
+        first_button_actions_after_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform after turning on the light
+        first_button_actions_before_off:
+          <<: *button_action_config
+          name: Before Turn Off
+          description: Actions to perform before turning off the light
+        first_button_actions_after_off:
+          <<: *button_action_config
+          name: After Turn Off
+          description: Actions to perform after turning off the light
+
+    second_button_light:
+      <<: *button_light
+      name: Second Button
+      description: The light(s) to control with second button
+      default: []
+
+    second_button_allow_dimming:
+      name: Allow Dimming
+      default: true
+      selector:
+        boolean:
+
+    second_button_scene_cycle:
+      name: Second Button Scenes
+      description: Optional scenes to cycle through when pressing the second button multiple times
+      collapsed: true
+      input:
+        second_button_scene_one:
+          name: Scene One
+          <<: *scene_input
+        second_button_scene_two:
+          name: Scene Two
+          <<: *scene_input
+        second_button_scene_three:
+          name: Scene Three
+          <<: *scene_input
+        second_button_scene_four:
+          name: Scene Four
+          <<: *scene_input
+
+    second_button_actions:
+      name: Second Button Actions
+      <<: *button_actions_input_section
+      input:
+        second_button_actions_before_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform before turning on the light
+        second_button_actions_after_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform after turning on the light
+
+        second_button_actions_before_off:
+          <<: *button_action_config
+          name: Before Turn Off
+          description: Actions to perform before turning off the light
+        second_button_actions_after_off:
+          <<: *button_action_config
+          name: After Turn Off
+          description: Actions to perform after turning on the light
+
+    third_button_light:
+      <<: *button_light
+      name: Third Button
+      description: The light(s) to control with third button
+      default: []
+
+    third_button_allow_dimming:
+      name: Allow Dimming
+      default: true
+      selector:
+        boolean:
+
+    third_button_scene_cycle:
+      name: Third Button Scenes
+      description: Optional scenes to cycle through when pressing the second button multiple times
+      collapsed: true
+      input:
+        third_button_scene_one:
+          name: Scene One
+          <<: *scene_input
+        third_button_scene_two:
+          name: Scene Two
+          <<: *scene_input
+        third_button_scene_three:
+          name: Scene Three
+          <<: *scene_input
+        third_button_scene_four:
+          name: Scene Four
+          <<: *scene_input
+
+    third_button_actions:
+      name: Third Button Actions
+      <<: *button_actions_input_section
+      input:
+        third_button_actions_before_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform before turning on the light
+        third_button_actions_after_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform after turning on the light
+
+        third_button_actions_before_off:
+          <<: *button_action_config
+          name: Before Turn Off
+          description: Actions to perform before turning off the light
+        third_button_actions_after_off:
+          <<: *button_action_config
+          name: After Turn Off
+          description: Actions to perform after turning on the light
+
+    fourth_button_light:
+      <<: *button_light
+      name: Fourth Button
+      description: The light(s) to control with fourth button
+      default: []
+
+    fourth_button_allow_dimming:
+      name: Allow Dimming
+      default: true
+      selector:
+        boolean:      
+
+    fourth_button_scene_cycle:
+      name: Fourth Button Scenes
+      description: Optional scenes to cycle through when pressing the fourth button multiple times
+      collapsed: true
+      input:
+        fourth_button_scene_one:
+          name: Scene One
+          <<: *scene_input
+        fourth_button_scene_two:
+          name: Scene Two
+          <<: *scene_input
+        fourth_button_scene_three:
+          name: Scene Three
+          <<: *scene_input
+        fourth_button_scene_four:
+          name: Scene Four
+          <<: *scene_input
+
+    fourth_button_actions:
+      name: Fourth Button Actions
+      <<: *button_actions_input_section
+      input:
+        fourth_button_actions_before_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform before turning on the light
+        fourth_button_actions_after_on:
+          <<: *button_action_config
+          name: After Turn On
+          description: Actions to perform after turning on the light
+
+        fourth_button_actions_before_off:
+          <<: *button_action_config
+          name: Before Turn Off
+          description: Actions to perform before turning off the light
+        fourth_button_actions_after_off:
+          <<: *button_action_config
+          name: After Turn Off
+          description: Actions to perform after turning on the light
+  source_url: https://github.com/nickcwilkins/hass-blueprints/blob/main/hue/tap_dial_zha.yaml
+mode: single
+max_exceeded: silent
+
+#region VARIABLES
+variables:
+  first_button_light: !input first_button_light
+  first_button_allow_dimming: !input first_button_allow_dimming
+  first_button_scene_one: !input first_button_scene_one
+  first_button_scene_two: !input first_button_scene_two
+  first_button_scene_three: !input first_button_scene_three
+  first_button_scene_four: !input first_button_scene_four
+
+  second_button_light: !input second_button_light
+  second_button_allow_dimming: !input second_button_allow_dimming
+  second_button_scene_one: !input second_button_scene_one
+  second_button_scene_two: !input second_button_scene_two
+  second_button_scene_three: !input second_button_scene_three
+  second_button_scene_four: !input second_button_scene_four
+
+  third_button_light: !input third_button_light
+  third_button_allow_dimming: !input third_button_allow_dimming
+  third_button_scene_one: !input third_button_scene_one
+  third_button_scene_two: !input third_button_scene_two
+  third_button_scene_three: !input third_button_scene_three
+  third_button_scene_four: !input third_button_scene_four
+
+  fourth_button_light: !input fourth_button_light
+  fourth_button_allow_dimming: !input fourth_button_allow_dimming
+  fourth_button_scene_one: !input fourth_button_scene_one
+  fourth_button_scene_two: !input fourth_button_scene_two
+  fourth_button_scene_three: !input fourth_button_scene_three
+  fourth_button_scene_four: !input fourth_button_scene_four
+
+  dim_scale: !input dim_scale
+#endregion VARIABLES
+
+#region TRIGGERS
+triggers:
+  - trigger: event
+    id: first_button
+    alias: "First Button Pressed"
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: recall
+      params:
+        scene_id: 1
+  - trigger: event
+    id: second_button
+    alias: "Second Button Pressed"
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: recall
+      params:
+        scene_id: 0
+  - trigger: event
+    id: third_button
+    alias: "Third Button Pressed"
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: recall
+      params:
+        scene_id: 5
+  - trigger: event
+    id: fourth_button
+    alias: "Fourth Button Pressed"
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: recall
+      params:
+        scene_id: 4
+  - trigger: event
+    id: dial_clockwise
+    alias: "Dial Turned Clockwise"
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: step_with_on_off
+      params:
+        step_mode: 0
+  - trigger: event
+    id: dial_counter_clockwise
+    alias: "Dial Turned Counter Clockwise"
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: step_with_on_off
+      params:
+        step_mode: 1
+#endregion TRIGGERS
+
+actions:
+  - choose:
+      # region FIRST BUTTON
+      - conditions:
+          - condition: trigger
+            id: first_button
+        sequence:
+          - if:
+              condition: template
+              value_template: "{{ 'off' in first_button_light | map('states', 'off') }}"
+
+            then:
+              - variables:
+                  scene_one: !input first_button_scene_one
+                  scene_two: !input first_button_scene_two
+                  scene_three: !input first_button_scene_three
+                  scene_four: !input first_button_scene_four
+
+              - sequence: !input first_button_actions_before_on
+                continue_on_error: true
+              - action: light.turn_on
+                metadata: {}
+                data: {}
+                entity_id: !input first_button_light
+              - sequence: !input first_button_actions_after_on
+                continue_on_error: true
+
+              - &scene_one_condition
+                condition: template
+                value_template: "{{ scene_one is defined }}"
+
+              - &scene_cycle_trigger
+                wait_for_trigger:
+                  - trigger: event
+                    event_type: "zha_event"
+                    event_data:
+                      device_id: "{{ trigger.event.data.device_id }}"
+                      command: "{{ trigger.event.data.command }}"
+                      params:
+                        scene_id: "{{ trigger.event.data.params.scene_id }}"
+                continue_on_timeout: false
+                timeout:
+                  seconds: !input scene_cycle_timeout
+              - &scene_one_action
+                action: scene.turn_on
+                metadata: {}
+                target:
+                  entity_id: "{{ scene_one }}"
+
+              - &scene_two_condition
+                condition: template
+                value_template: "{{ scene_two is defined }}"
+
+              - <<: *scene_cycle_trigger
+              - &scene_two_action
+                action: scene.turn_on
+                metadata: {}
+                target:
+                  entity_id: "{{ scene_two }}"
+
+              - &scene_three_condition
+                condition: template
+                value_template: "{{ scene_three is defined }}"
+              - <<: *scene_cycle_trigger
+              - &scene_three_action
+                action: scene.turn_on
+                metadata: {}
+                target:
+                  entity_id: "{{ scene_three }}"
+
+              - &scene_four_condition
+                condition: template
+                value_template: "{{ scene_four is defined }}"
+              - <<: *scene_cycle_trigger
+              - &scene_four_action
+                action: scene.turn_on
+                metadata: {}
+                target:
+                  entity_id: "{{ scene_four }}"
+
+            else:
+              - sequence: !input first_button_actions_before_off
+              - action: light.turn_off
+                metadata: {}
+                data: {}
+                entity_id: !input first_button_light
+              - sequence: !input first_button_actions_after_off
+      # endregion FIRST BUTTON
+
+      # region SECOND BUTTON
+      - conditions:
+          - condition: trigger
+            id: second_button
+        sequence:
+          - if:
+              condition: template
+              value_template: "{{ 'off' in second_button_light | map('states', 'off') }}"
+
+            then:
+              - variables:
+                  scene_one: !input second_button_scene_one
+                  scene_two: !input second_button_scene_two
+                  scene_three: !input second_button_scene_three
+                  scene_four: !input second_button_scene_four
+
+              - sequence: !input second_button_actions_before_on
+                continue_on_error: true
+              - action: light.turn_on
+                metadata: {}
+                data: {}
+                entity_id: !input second_button_light
+              - sequence: !input second_button_actions_after_on
+
+              - <<: *scene_one_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_one_action
+
+              - <<: *scene_two_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_two_action
+
+              - <<: *scene_three_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_three_action
+
+              - <<: *scene_four_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_four_action
+
+            else:
+              - sequence: !input second_button_actions_before_off
+              - action: light.turn_off
+                metadata: {}
+                data: {}
+                entity_id: !input second_button_light
+              - sequence: !input second_button_actions_after_off
+      # endregion SECOND BUTTON
+
+      # region THIRD BUTTON
+      - conditions:
+          - condition: trigger
+            id: third_button
+        sequence:
+          - if:
+              condition: template
+              value_template: "{{ 'off' in third_button_light | map('states', 'off') }}"
+
+            then:
+              - variables:
+                  scene_one: !input third_button_scene_one
+                  scene_two: !input third_button_scene_two
+                  scene_three: !input third_button_scene_three
+                  scene_four: !input third_button_scene_four
+
+              - sequence: !input third_button_actions_before_on
+                continue_on_error: true
+              - action: light.turn_on
+                metadata: {}
+                data: {}
+                entity_id: !input third_button_light
+              - sequence: !input third_button_actions_after_on
+
+              - <<: *scene_one_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_one_action
+
+              - <<: *scene_two_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_two_action
+
+              - <<: *scene_three_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_three_action
+
+              - <<: *scene_four_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_four_action
+            else:
+              - sequence: !input third_button_actions_before_off
+              - action: light.turn_off
+                metadata: {}
+                data: {}
+                entity_id: !input third_button_light
+              - sequence: !input third_button_actions_after_off
+      # endregion THIRD BUTTON
+
+      # region FOURTH BUTTON
+      - conditions:
+          - condition: trigger
+            id: fourth_button
+        sequence:
+          - if:
+              condition: template
+              value_template: "{{ 'off' in fourth_button_light | map('states', 'off') }}"
+
+            then:
+              - variables:
+                  scene_one: !input fourth_button_scene_one
+                  scene_two: !input fourth_button_scene_two
+                  scene_three: !input fourth_button_scene_three
+                  scene_four: !input fourth_button_scene_four
+
+              - sequence: !input fourth_button_actions_before_on
+                continue_on_error: true
+              - action: light.turn_on
+                metadata: {}
+                data: {}
+                entity_id: !input fourth_button_light
+              - sequence: !input fourth_button_actions_after_on
+
+              - <<: *scene_one_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_one_action
+
+              - <<: *scene_two_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_two_action
+
+              - <<: *scene_three_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_three_action
+
+              - <<: *scene_four_condition
+              - <<: *scene_cycle_trigger
+              - <<: *scene_four_action
+            else:
+              - sequence: !input fourth_button_actions_before_off
+              - action: light.turn_off
+                metadata: {}
+                data: {}
+                entity_id: !input fourth_button_light
+              - sequence: !input fourth_button_actions_after_off
+      # endregion FOURTH BUTTON
+
+      # region DIAL CLOCKWISE
+      - conditions:
+        - condition: trigger
+          id: dial_clockwise
+        sequence:
+          - variables:
+              step_size: "{{ trigger.event.data.params.step_size }}"
+              <<: &lights_variable
+                lights: >
+                  {% set lights = [] %}
+                  {% if first_button_allow_dimming %} {% set lights = first_button_light %} {% endif %}
+                  {% if second_button_allow_dimming %} {% set lights = lights + second_button_light %} {% endif %}
+                  {% if third_button_allow_dimming %} {% set lights = lights + third_button_light %} {% endif %}
+                  {% if fourth_button_allow_dimming %} {% set lights = lights + fourth_button_light %} {% endif %}
+                  {{ lights }}
+
+          - action: light.turn_on
+            data:
+              brightness_step: "{{ step_size * dim_scale }}"
+            target:
+              entity_id: "{{ lights | select('is_state', 'on') | list }}"
+      # endregion DIAL CLOCKWISE
+
+      # region DIAL CCW
+      - conditions:
+        - condition: trigger
+          id: dial_counter_clockwise
+        sequence:
+          - variables:
+              step_size: "{{ -trigger.event.data.params.step_size }}"
+              <<: *lights_variable
+          # ZHA doesn't yet tell us which button is being held, and a held button shares the same command as a dial rotation,
+          # but the step_size will be -255
+          - if:
+              condition: template
+              alias: Button Long Press
+              value_template: "{{ step_size <= -225 }}" # -225 is the minimum value for the "brightness_step" property
+            then:
+              - action: light.turn_off
+                metadata: {}
+                target:
+                  entity_id: "{{ lights }}"
+            else:
+              - action: light.turn_on
+                data:
+                  brightness_step: "{{ step_size * dim_scale }}"
+                target:
+                  entity_id: "{{ lights | select('is_state', 'on') | list }}"
+      # endregion DIAL CCW
