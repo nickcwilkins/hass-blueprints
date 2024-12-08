@@ -1,12 +1,12 @@
 blueprint:
   name: Philips Tap Dial Switch ZHA
   description: |
-    Fully featured automation for controlling the four button Philips Hue Tap Dial Switch via Zigbee Home Automation
+    A highly configurable automation blueprint for controlling the four button Philips Hue Tap Dial Switch via Zigbee Home Automation
 
-    Dial and Long Presses are supported and will control all lights currently turned on that are designated with "Allow Dimming"
+    By default, the automation will perform actions similar to the Philips Hue app. Each button press type has an associated input that can be overridden to perform arbitrary non-light related actions.
   domain: automation
   homeassistant:
-    min_version: 2024.6.0
+    min_version: 2024.11.0
   input:
     remote:
       name: Philips Hue Tap Switch
@@ -17,14 +17,6 @@ blueprint:
             manufacturer: Signify Netherlands B.V.
             model: RDM002
           multiple: false
-    scene_cycle_timeout:
-      name: Scene Cycle Timeout
-      description: Time in seconds to register multiple presses for scene cycling
-      default: 3
-      selector:
-        number:
-          max: 5
-          min: 1
 
     dim_scale:
       name: Dimming Scale
@@ -37,303 +29,352 @@ blueprint:
           max: 3.0
           step: 0.05
           mode: slider
+    first_press_behavior:
+      name: First Press Behavior
+      description: |
+        Alter the behavior of what happens when a button is pressed the first time
 
-    first_button_light:
+        toggle - Toggles the state of the lights
+        turn_on - Turns the lights on
+        scene - Turn on the first scene
+      default: toggle
+      selector:
+        select:
+          options:
+            - toggle
+            - turn_on
+            - scene
+#region FIRST BUTTON INPUT
+    first_button:
       name: First Button
-      description: The light(s) to control with first button
-      <<: &button_light
-        selector:
-          entity:
-            filter:
-              domain: light
-            multiple: true
-    first_button_allow_dimming:
-      name: Allow Dimming
-      default: true
-      selector:
-        boolean:
-    first_button_scene_cycle:
-      name: First Button Scenes
-      description: Optional scenes to cycle through when pressing the first button multiple times
+      description: Configuration for the first button on the Philips Hue Tap Switch
+      input:
+        first_button_lights: &input_button_lights
+          name: Lights
+          description: The light(s) controlled by the first button
+          default: []
+          selector:
+            entity:
+              filter:
+                domain: light
+              multiple: true
+        first_button_allow_dimming: &input_allow_dimming
+          name: Allow Dimming
+          description: Whether or not the dial will control the brightness of these lights while turned on
+          default: true
+          selector:
+            boolean:
+
+        first_button_scenes: &input_scenes
+          name: Scenes
+          description: Optional scenes to cycle through when pressing the button multiple times, up to a maximum of five. If "First Press Behavior" is not "scene", then only the first four are used.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: scene
+    
+    first_button_press_actions:
+      name: First Button Press Actions
+      description: Advanced configuration for actions to perform when the button is pressed, double pressed, triple pressed, etc.
       collapsed: true
       input:
-        first_button_scene_one:
-          name: Scene One
-          <<: &scene_input
-            default: None
-            selector:
-              entity:
-                filter:
-                  domain: scene
-        first_button_scene_two:
-          name: Scene Two
-          <<: *scene_input
-        first_button_scene_three:
-          name: Scene Three
-          <<: *scene_input
-        first_button_scene_four:
-          name: Scene Four
-          <<: *scene_input
+        first_button_single_press: &input_single_press
+          name: Single Press
+          description: Actions to perform when the button is pressed once
+          selector:
+            action: {}
+          default:
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ first_press_behavior == 'toggle' }}"
+                      alias: If first press behavior is "toggle"
+                  alias: Toggle
+                  sequence:
+                    - if:
+                      - condition: template
+                        value_template: "{{ 'off' in lights | map('states', 'off') }}"
+                        alias: Any lights are off
+                      then:
+                        - action: light.turn_on
+                          metadata: {}
+                          data: {}
+                          target:
+                            entity_id: "{{ lights }}"
+                      else:
+                        - action: light.turn_off
+                          metadata: {}
+                          data: {}
+                          target:
+                            entity_id: "{{ lights }}"
+                - conditions:
+                    - condition: template
+                      value_template: "{{ first_press_behavior == 'turn_on' }}"
+                      alias: If first press behavior is "turn on"
+                  alias: Turn On
+                  sequence:
+                    - action: light.turn_on
+                      metadata: {}
+                      data: {}
+                      target:
+                        entity_id: "{{ lights }}"
+                - conditions:
+                  - condition: template
+                    value_template: "{{ first_press_behavior == 'scene' and scene_index is not none and scenes[scene_index] is defined }}"
+                  alias: Scene
+                  sequence:
+                    - action: scene.turn_on
+                      metadata: {}
+                      target:
+                        entity_id: "{{ scenes[scene_index] }}"
+        first_button_double_press: &input_double_press
+          name: Double Press
+          description: Actions to perform when the button is pressed twice
+          selector:
+            action: {}
+          default:
+            - if:
+                - condition: template
+                  value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+                  alias: Scene two is defined
+              alias: Button is pressed twice
+              then:
+                - action: scene.turn_on
+                  alias: Activate Scene
+                  metadata: {}
+                  target:
+                    entity_id: "{{ scenes[scene_index] }}"
+        first_button_triple_press: &input_triple_press
+          name: Triple Press
+          description: Actions to perform when the button is pressed three times
+          selector:
+            action: {}
+          default:
+            - if:
+                - condition: template
+                  value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+                  alias: Scene three is defined
+              alias: Button is pressed three times
+              then:
+                - action: scene.turn_on
+                  alias: Activate Scene
+                  metadata: {}
+                  target:
+                    entity_id: "{{ scenes[scene_index] }}"
+        first_button_quadruple_press: &input_quadruple_press
+          name: Quadruple Press
+          description: Actions to perform when the button is pressed four times
+          selector:
+            action: {}
+          default:
+            - if:
+                - condition: template
+                  value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+                  alias: Scene four is defined
+              alias: Button is pressed four times
+              then:
+                - action: scene.turn_on
+                  alias: Activate Scene
+                  metadata: {}
+                  target:
+                    entity_id: "{{ scenes[scene_index] }}"
+        first_button_quintuple_press: &input_quintuple_press
+          name: Quintuple Press
+          description: Actions to perform when the button is pressed five times
+          selector:
+            action: {}
+          default:
+            - if:
+                - condition: template
+                  value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+                  alias: Scene five is defined
+              alias: Button is pressed five times
+              then:
+                - action: scene.turn_on
+                  alias: Activate Scene
+                  metadata: {}
+                  target:
+                    entity_id: "{{ scenes[scene_index] }}"
 
-    first_button_actions:
-      name: First Button Actions
-      <<: &button_actions_input_section
-        description: Actions to perform before and after toggling the light
-        collapsed: true
-      input:
-        first_button_actions_before_on:
-          name: Before Turn On
-          description: Actions to perform before turning on the light
-          <<: &button_action_config
-            default: []
-            selector:
-              action:
-        first_button_actions_after_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform after turning on the light
-        first_button_actions_before_off:
-          <<: *button_action_config
-          name: Before Turn Off
-          description: Actions to perform before turning off the light
-        first_button_actions_after_off:
-          <<: *button_action_config
-          name: After Turn Off
-          description: Actions to perform after turning off the light
+        first_button_long_press: &input_long_press
+          name: Long Press
+          description: Actions to perform when the button is held
+          selector:
+            action: {}
+          default:
+            - action: light.turn_off
+              metadata: {}
+              data: {}
+              target:
+                entity_id: "{{ lights }}"
+#endregion FIRST BUTTON INPUT
 
-    second_button_light:
-      <<: *button_light
+#region SECOND BUTTON INPUT
+    second_button:
       name: Second Button
-      description: The light(s) to control with second button
-      default: []
+      description: Configuration for the second button on the Philips Hue Tap Switch
+      input:
+        second_button_lights: *input_button_lights
+        second_button_allow_dimming: *input_allow_dimming
+        second_button_scenes: *input_scenes
 
-    second_button_allow_dimming:
-      name: Allow Dimming
-      default: true
-      selector:
-        boolean:
-
-    second_button_scene_cycle:
-      name: Second Button Scenes
-      description: Optional scenes to cycle through when pressing the second button multiple times
+    second_button_press_actions:
+      name: Second Button Press Actions
+      description: Advanced configuration for actions to perform when the button is pressed, double pressed, triple pressed, etc.
       collapsed: true
       input:
-        second_button_scene_one:
-          name: Scene One
-          <<: *scene_input
-        second_button_scene_two:
-          name: Scene Two
-          <<: *scene_input
-        second_button_scene_three:
-          name: Scene Three
-          <<: *scene_input
-        second_button_scene_four:
-          name: Scene Four
-          <<: *scene_input
+        second_button_single_press: *input_single_press
+        second_button_double_press: *input_double_press
+        second_button_triple_press: *input_triple_press
+        second_button_quadruple_press: *input_quadruple_press
+        second_button_quintuple_press: *input_quintuple_press
+        second_button_long_press: *input_long_press
+#endregion SECOND BUTTON INPUT
 
-    second_button_actions:
-      name: Second Button Actions
-      <<: *button_actions_input_section
-      input:
-        second_button_actions_before_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform before turning on the light
-        second_button_actions_after_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform after turning on the light
-
-        second_button_actions_before_off:
-          <<: *button_action_config
-          name: Before Turn Off
-          description: Actions to perform before turning off the light
-        second_button_actions_after_off:
-          <<: *button_action_config
-          name: After Turn Off
-          description: Actions to perform after turning on the light
-
-    third_button_light:
-      <<: *button_light
+#region THIRD BUTTON INPUT
+    third_button:
       name: Third Button
-      description: The light(s) to control with third button
-      default: []
+      description: Configuration for the third button on the Philips Hue Tap Switch
+      input:
+        third_button_lights: *input_button_lights
+        third_button_allow_dimming: *input_allow_dimming
+        third_button_scenes: *input_scenes
 
-    third_button_allow_dimming:
-      name: Allow Dimming
-      default: true
-      selector:
-        boolean:
-
-    third_button_scene_cycle:
-      name: Third Button Scenes
-      description: Optional scenes to cycle through when pressing the second button multiple times
+    third_button_press_actions:
+      name: Third Button Press Actions
+      description: Advanced configuration for actions to perform when the button is pressed, double pressed, triple pressed, etc.
       collapsed: true
       input:
-        third_button_scene_one:
-          name: Scene One
-          <<: *scene_input
-        third_button_scene_two:
-          name: Scene Two
-          <<: *scene_input
-        third_button_scene_three:
-          name: Scene Three
-          <<: *scene_input
-        third_button_scene_four:
-          name: Scene Four
-          <<: *scene_input
+        third_button_single_press: *input_single_press
+        third_button_double_press: *input_double_press
+        third_button_triple_press: *input_triple_press
+        third_button_quadruple_press: *input_quadruple_press
+        third_button_quintuple_press: *input_quintuple_press
+        third_button_long_press: *input_long_press
+#endregion THIRD BUTTON INPUT
 
-    third_button_actions:
-      name: Third Button Actions
-      <<: *button_actions_input_section
-      input:
-        third_button_actions_before_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform before turning on the light
-        third_button_actions_after_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform after turning on the light
-
-        third_button_actions_before_off:
-          <<: *button_action_config
-          name: Before Turn Off
-          description: Actions to perform before turning off the light
-        third_button_actions_after_off:
-          <<: *button_action_config
-          name: After Turn Off
-          description: Actions to perform after turning on the light
-
-    fourth_button_light:
-      <<: *button_light
+#region FOURTH BUTTON INPUT
+    fourth_button:
       name: Fourth Button
-      description: The light(s) to control with fourth button
-      default: []
+      description: Configuration for the fourth button on the Philips Hue Tap Switch
+      input:
+        fourth_button_lights: *input_button_lights
+        fourth_button_allow_dimming: *input_allow_dimming
+        fourth_button_scenes: *input_scenes
 
-    fourth_button_allow_dimming:
-      name: Allow Dimming
-      default: true
-      selector:
-        boolean:      
-
-    fourth_button_scene_cycle:
-      name: Fourth Button Scenes
-      description: Optional scenes to cycle through when pressing the fourth button multiple times
+    fourth_button_press_actions:
+      name: Fourth Button Press Actions
+      description: Advanced configuration for actions to perform when the button is pressed, double pressed, triple pressed, etc.
       collapsed: true
       input:
-        fourth_button_scene_one:
-          name: Scene One
-          <<: *scene_input
-        fourth_button_scene_two:
-          name: Scene Two
-          <<: *scene_input
-        fourth_button_scene_three:
-          name: Scene Three
-          <<: *scene_input
-        fourth_button_scene_four:
-          name: Scene Four
-          <<: *scene_input
+        fourth_button_single_press: *input_single_press
+        fourth_button_double_press: *input_double_press
+        fourth_button_triple_press: *input_triple_press
+        fourth_button_quadruple_press: *input_quadruple_press
+        fourth_button_quintuple_press: *input_quintuple_press
+        fourth_button_long_press: *input_long_press
+#endregion FOURTH BUTTON INPUT
 
-    fourth_button_actions:
-      name: Fourth Button Actions
-      <<: *button_actions_input_section
-      input:
-        fourth_button_actions_before_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform before turning on the light
-        fourth_button_actions_after_on:
-          <<: *button_action_config
-          name: After Turn On
-          description: Actions to perform after turning on the light
+#region DIAL INPUT
+    dial_clockwise_actions:
+      name: Dial Clockwise Actions
+      description: Actions to perform when the dial is turned clockwise
+      <<: &dial_actions
+        selector:
+          action: {}
+        default:
+          - action: light.turn_on
+            metadata: {}
+            data: 
+              brightness_step: "{{ step_size * dim_scale }}"
+            target:
+              entity_id: "{{ dial_lights | select('is_state', 'on') | list }}"
+    dial_counterclockwise_actions:
+      name: Dial Counter Clockwise Actions
+      description: Actions to perform when the dial is turned counter clockwise
+      <<: *dial_actions
+#endregion DIAL INPUT
 
-        fourth_button_actions_before_off:
-          <<: *button_action_config
-          name: Before Turn Off
-          description: Actions to perform before turning off the light
-        fourth_button_actions_after_off:
-          <<: *button_action_config
-          name: After Turn Off
-          description: Actions to perform after turning on the light
   source_url: https://github.com/nickcwilkins/hass-blueprints/blob/main/hue/tap_dial_zha.yaml
 mode: single
 max_exceeded: silent
 
 #region VARIABLES
 variables:
-  first_button_light: !input first_button_light
-  first_button_allow_dimming: !input first_button_allow_dimming
-  first_button_scene_one: !input first_button_scene_one
-  first_button_scene_two: !input first_button_scene_two
-  first_button_scene_three: !input first_button_scene_three
-  first_button_scene_four: !input first_button_scene_four
-
-  second_button_light: !input second_button_light
-  second_button_allow_dimming: !input second_button_allow_dimming
-  second_button_scene_one: !input second_button_scene_one
-  second_button_scene_two: !input second_button_scene_two
-  second_button_scene_three: !input second_button_scene_three
-  second_button_scene_four: !input second_button_scene_four
-
-  third_button_light: !input third_button_light
-  third_button_allow_dimming: !input third_button_allow_dimming
-  third_button_scene_one: !input third_button_scene_one
-  third_button_scene_two: !input third_button_scene_two
-  third_button_scene_three: !input third_button_scene_three
-  third_button_scene_four: !input third_button_scene_four
-
-  fourth_button_light: !input fourth_button_light
-  fourth_button_allow_dimming: !input fourth_button_allow_dimming
-  fourth_button_scene_one: !input fourth_button_scene_one
-  fourth_button_scene_two: !input fourth_button_scene_two
-  fourth_button_scene_three: !input fourth_button_scene_three
-  fourth_button_scene_four: !input fourth_button_scene_four
-
   dim_scale: !input dim_scale
+  first_press_behavior: !input first_press_behavior
+  first_button_lights: !input first_button_lights
+  first_button_allow_dimming: !input first_button_allow_dimming
+  first_button_scenes: !input first_button_scenes
+
+  second_button_lights: !input second_button_lights
+  second_button_allow_dimming: !input second_button_allow_dimming
+  second_button_scenes: !input second_button_scenes
+
+  third_button_lights: !input third_button_lights
+  third_button_allow_dimming: !input third_button_allow_dimming
+  third_button_scenes: !input third_button_scenes
+
+  fourth_button_lights: !input fourth_button_lights
+  fourth_button_allow_dimming: !input fourth_button_allow_dimming
+  fourth_button_scenes: !input fourth_button_scenes
 #endregion VARIABLES
 
 #region TRIGGERS
 triggers:
   - trigger: event
-    id: first_button
-    alias: "First Button Pressed"
+    id: single_press
+    alias: Single Press
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: recall
-      params:
-        scene_id: 1
+      args:
+        press_type: press
   - trigger: event
-    id: second_button
-    alias: "Second Button Pressed"
+    id: double_press
+    alias: Double Press
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: recall
-      params:
-        scene_id: 0
+      args:
+        press_type: double_press
   - trigger: event
-    id: third_button
-    alias: "Third Button Pressed"
+    id: triple_press
+    alias: Triple Press
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: recall
-      params:
-        scene_id: 5
+      args:
+        press_type: triple_press
   - trigger: event
-    id: fourth_button
-    alias: "Fourth Button Pressed"
+    id: quadruple_press
+    alias: Quadruple Press
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: recall
-      params:
-        scene_id: 4
+      args:
+        press_type: quadruple_press
+  - trigger: event
+    id: quintuple_press
+    alias: Quintuple Press
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: quintuple_press
+  - trigger: event
+    id: long_release
+    alias: Long Release
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: long_release
   - trigger: event
     id: dial_clockwise
-    alias: "Dial Turned Clockwise"
+    alias: Dial Turned Clockwise
     event_type: zha_event
     event_data:
       device_id: !input remote
@@ -342,7 +383,7 @@ triggers:
         step_mode: 0
   - trigger: event
     id: dial_counter_clockwise
-    alias: "Dial Turned Counter Clockwise"
+    alias: Dial Turned Counter Clockwise
     event_type: zha_event
     event_data:
       device_id: !input remote
@@ -352,285 +393,267 @@ triggers:
 #endregion TRIGGERS
 
 actions:
+  - variables:
+      command: >
+        {{ trigger.event.data.command }}
+      button: >
+        {% if 'args' in trigger.event.data and trigger.event.data.args is mapping and trigger.event.data.args.button is defined %} 
+          {{ trigger.event.data.args.button }}
+        {% endif %}
+      press_type: >
+        {% if 'args' in trigger.event.data and trigger.event.data.args is mapping and trigger.event.data.args.press_type is defined %}
+          {{ trigger.event.data.args.press_type }}
+        {% endif %}
+      lights: >
+        {% if button == 'button_1' %}
+          {{ first_button_lights }}
+        {% elif button == 'button_2' %}
+          {{ second_button_lights }}
+        {% elif button == 'button_3' %}
+          {{ third_button_lights }}
+        {% elif button == 'button_4' %}
+          {{ fourth_button_lights }}
+        {% else %}
+          []
+        {% endif %}
+      dial_lights: >
+        {% set dial_lights = [] %}
+        {% if first_button_allow_dimming %} 
+          {% set dial_lights = first_button_lights %}
+        {% endif %}
+        {% if second_button_allow_dimming %}
+          {% set dial_lights = dial_lights + second_button_lights %}
+        {% endif %}
+        {% if third_button_allow_dimming %}
+          {% set dial_lights = dial_lights + third_button_lights %}
+        {% endif %}
+        {% if fourth_button_allow_dimming %}
+          {% set dial_lights = dial_lights + fourth_button_lights %}
+        {% endif %}
+        {{ dial_lights }}
+      scenes: >
+        {% if button == 'button_1' %}
+          {{ first_button_scenes }}
+        {% elif button == 'button_2' %}
+          {{ second_button_scenes }}
+        {% elif button == 'button_3' %}
+          {{ third_button_scenes }}
+        {% elif button == 'button_4' %}
+          {{ fourth_button_scenes }}
+        {% else %}
+          []
+        {% endif %}
+      scene_index: >
+        {% set scene_index = None %}
+        {% set scene_offset = 0 if first_press_behavior == 'scene' else -1 %}
+
+        {% if press_type == 'press' %}
+          {{ 0 + scene_offset }}
+        {% elif press_type == 'double_press' %}
+          {{ 1 + scene_offset }}
+        {% elif press_type == 'triple_press' %}
+          {{ 2 + scene_offset }}
+        {% elif press_type == 'quadruple_press' %}
+          {{ 3 + scene_offset }}
+        {% elif press_type == 'quintuple_press' %}
+          {{ 4 + scene_offset }}
+        {% else %}
+          None
+        {% endif %}
+        {{ scene_index }}
+      step_size: >
+        {% if trigger.id == 'dial_clockwise' %}
+          {{ trigger.event.data.params.step_size }}
+        {% elif trigger.id == 'dial_counter_clockwise' %}
+          {{ -trigger.event.data.params.step_size }}
+        {% else %}
+          0
+        {% endif %}
   - choose:
-      # region FIRST BUTTON
+#region SINGLE PRESS
       - conditions:
-          - condition: trigger
-            id: first_button
+        - condition: trigger
+          id: single_press
+        alias: Single Press
         sequence:
-          - if:
-              condition: template
-              value_template: "{{ 'off' in first_button_light | map('states', 'off') }}"
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_1' }}"
+              alias: First Button Single Press
+              sequence: !input first_button_single_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_2' }}"
+              alias: Second Button Single Press
+              sequence: !input second_button_single_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_3' }}"
+              alias: Third Button Single Press
+              sequence: !input third_button_single_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_4' }}"
+              alias: Fourth Button Single Press
+              sequence: !input fourth_button_single_press
+#endregion SINGLE PRESS
 
-            then:
-              - variables:
-                  scene_one: !input first_button_scene_one
-                  scene_two: !input first_button_scene_two
-                  scene_three: !input first_button_scene_three
-                  scene_four: !input first_button_scene_four
-
-              - sequence: !input first_button_actions_before_on
-                continue_on_error: true
-              - action: light.turn_on
-                metadata: {}
-                data: {}
-                entity_id: !input first_button_light
-              - sequence: !input first_button_actions_after_on
-                continue_on_error: true
-
-              - &scene_one_condition
-                condition: template
-                value_template: "{{ scene_one is defined }}"
-
-              - &scene_cycle_trigger
-                wait_for_trigger:
-                  - trigger: event
-                    event_type: "zha_event"
-                    event_data:
-                      device_id: "{{ trigger.event.data.device_id }}"
-                      command: "{{ trigger.event.data.command }}"
-                      params:
-                        scene_id: "{{ trigger.event.data.params.scene_id }}"
-                continue_on_timeout: false
-                timeout:
-                  seconds: !input scene_cycle_timeout
-              - &scene_one_action
-                action: scene.turn_on
-                metadata: {}
-                target:
-                  entity_id: "{{ scene_one }}"
-
-              - &scene_two_condition
-                condition: template
-                value_template: "{{ scene_two is defined }}"
-
-              - <<: *scene_cycle_trigger
-              - &scene_two_action
-                action: scene.turn_on
-                metadata: {}
-                target:
-                  entity_id: "{{ scene_two }}"
-
-              - &scene_three_condition
-                condition: template
-                value_template: "{{ scene_three is defined }}"
-              - <<: *scene_cycle_trigger
-              - &scene_three_action
-                action: scene.turn_on
-                metadata: {}
-                target:
-                  entity_id: "{{ scene_three }}"
-
-              - &scene_four_condition
-                condition: template
-                value_template: "{{ scene_four is defined }}"
-              - <<: *scene_cycle_trigger
-              - &scene_four_action
-                action: scene.turn_on
-                metadata: {}
-                target:
-                  entity_id: "{{ scene_four }}"
-
-            else:
-              - sequence: !input first_button_actions_before_off
-              - action: light.turn_off
-                metadata: {}
-                data: {}
-                entity_id: !input first_button_light
-              - sequence: !input first_button_actions_after_off
-      # endregion FIRST BUTTON
-
-      # region SECOND BUTTON
+#region DOUBLE PRESS
       - conditions:
-          - condition: trigger
-            id: second_button
+        - condition: trigger
+          id: double_press
+        alias: Double Press
         sequence:
-          - if:
-              condition: template
-              value_template: "{{ 'off' in second_button_light | map('states', 'off') }}"
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_1' }}"
+              alias: First Button Double Press
+              sequence: !input first_button_double_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_2' }}"
+              alias: Second Button Double Press
+              sequence: !input second_button_double_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_3' }}"
+              alias: Third Button Double Press
+              sequence: !input third_button_double_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_4' }}"
+              alias: Fourth Button Double Press
+              sequence: !input fourth_button_double_press
+#endregion DOUBLE PRESS
 
-            then:
-              - variables:
-                  scene_one: !input second_button_scene_one
-                  scene_two: !input second_button_scene_two
-                  scene_three: !input second_button_scene_three
-                  scene_four: !input second_button_scene_four
-
-              - sequence: !input second_button_actions_before_on
-                continue_on_error: true
-              - action: light.turn_on
-                metadata: {}
-                data: {}
-                entity_id: !input second_button_light
-              - sequence: !input second_button_actions_after_on
-
-              - <<: *scene_one_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_one_action
-
-              - <<: *scene_two_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_two_action
-
-              - <<: *scene_three_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_three_action
-
-              - <<: *scene_four_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_four_action
-
-            else:
-              - sequence: !input second_button_actions_before_off
-              - action: light.turn_off
-                metadata: {}
-                data: {}
-                entity_id: !input second_button_light
-              - sequence: !input second_button_actions_after_off
-      # endregion SECOND BUTTON
-
-      # region THIRD BUTTON
+#region TRIPLE PRESS
       - conditions:
-          - condition: trigger
-            id: third_button
+        - condition: trigger
+          id: triple_press
+        alias: Triple Press
         sequence:
-          - if:
-              condition: template
-              value_template: "{{ 'off' in third_button_light | map('states', 'off') }}"
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_1' }}"
+              alias: First Button Triple Press
+              sequence: !input first_button_triple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_2' }}"
+              alias: Second Button Triple Press
+              sequence: !input second_button_triple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_3' }}"
+              alias: Third Button Triple Press
+              sequence: !input third_button_triple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_4' }}"
+              alias: Fourth Button Triple Press
+              sequence: !input fourth_button_triple_press
+#endregion TRIPLE PRESS
 
-            then:
-              - variables:
-                  scene_one: !input third_button_scene_one
-                  scene_two: !input third_button_scene_two
-                  scene_three: !input third_button_scene_three
-                  scene_four: !input third_button_scene_four
-
-              - sequence: !input third_button_actions_before_on
-                continue_on_error: true
-              - action: light.turn_on
-                metadata: {}
-                data: {}
-                entity_id: !input third_button_light
-              - sequence: !input third_button_actions_after_on
-
-              - <<: *scene_one_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_one_action
-
-              - <<: *scene_two_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_two_action
-
-              - <<: *scene_three_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_three_action
-
-              - <<: *scene_four_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_four_action
-            else:
-              - sequence: !input third_button_actions_before_off
-              - action: light.turn_off
-                metadata: {}
-                data: {}
-                entity_id: !input third_button_light
-              - sequence: !input third_button_actions_after_off
-      # endregion THIRD BUTTON
-
-      # region FOURTH BUTTON
+#region QUADRUPLE PRESS
       - conditions:
-          - condition: trigger
-            id: fourth_button
+        - condition: trigger
+          id: quadruple_press
+        alias: Quadruple Press
         sequence:
-          - if:
-              condition: template
-              value_template: "{{ 'off' in fourth_button_light | map('states', 'off') }}"
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_1' }}"
+              alias: First Button Quadruple Press
+              sequence: !input first_button_quadruple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_2' }}"
+              alias: Second Button Quadruple Press
+              sequence: !input second_button_quadruple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_3' }}"
+              alias: Third Button Quadruple Press
+              sequence: !input third_button_quadruple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_4' }}"
+              alias: Fourth Button Quadruple Press
+              sequence: !input fourth_button_quadruple_press
+#endregion QUADRUPLE PRESS
 
-            then:
-              - variables:
-                  scene_one: !input fourth_button_scene_one
-                  scene_two: !input fourth_button_scene_two
-                  scene_three: !input fourth_button_scene_three
-                  scene_four: !input fourth_button_scene_four
+#region QUINTUPLE PRESS
+      - conditions:
+        - condition: trigger
+          id: quintuple_press
+        alias: Quintuple Press
+        sequence:
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_1' }}"
+              alias: First Button Quintuple Press
+              sequence: !input first_button_quintuple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_2' }}"
+              alias: Second Button Quintuple Press
+              sequence: !input second_button_quintuple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_3' }}"
+              alias: Third Button Quintuple Press
+              sequence: !input third_button_quintuple_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_4' }}"
+              alias: Fourth Button Quintuple Press
+              sequence: !input fourth_button_quintuple_press
+#endregion QUINTUPLE PRESS
 
-              - sequence: !input fourth_button_actions_before_on
-                continue_on_error: true
-              - action: light.turn_on
-                metadata: {}
-                data: {}
-                entity_id: !input fourth_button_light
-              - sequence: !input fourth_button_actions_after_on
+#region LONG PRESS
+      - conditions:
+        - condition: trigger
+          id: long_release
+        alias: Long Press
+        sequence:
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_1' }}"
+              alias: First Button Long Press
+              sequence: !input first_button_long_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_2' }}"
+              alias: Second Button Long Press
+              sequence: !input second_button_long_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_3' }}"
+              alias: Third Button Long Press
+              sequence: !input third_button_long_press
+            - conditions:
+              - condition: template
+                value_template: "{{ button == 'button_4' }}"
+              alias: Fourth Button Long Press
+              sequence: !input fourth_button_long_press
+#endregion LONG PRESS
 
-              - <<: *scene_one_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_one_action
-
-              - <<: *scene_two_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_two_action
-
-              - <<: *scene_three_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_three_action
-
-              - <<: *scene_four_condition
-              - <<: *scene_cycle_trigger
-              - <<: *scene_four_action
-            else:
-              - sequence: !input fourth_button_actions_before_off
-              - action: light.turn_off
-                metadata: {}
-                data: {}
-                entity_id: !input fourth_button_light
-              - sequence: !input fourth_button_actions_after_off
-      # endregion FOURTH BUTTON
-
-      # region DIAL CLOCKWISE
+# region DIAL CLOCKWISE
       - conditions:
         - condition: trigger
           id: dial_clockwise
-        sequence:
-          - variables:
-              step_size: "{{ trigger.event.data.params.step_size }}"
-              <<: &lights_variable
-                lights: >
-                  {% set lights = [] %}
-                  {% if first_button_allow_dimming %} {% set lights = first_button_light %} {% endif %}
-                  {% if second_button_allow_dimming %} {% set lights = lights + second_button_light %} {% endif %}
-                  {% if third_button_allow_dimming %} {% set lights = lights + third_button_light %} {% endif %}
-                  {% if fourth_button_allow_dimming %} {% set lights = lights + fourth_button_light %} {% endif %}
-                  {{ lights }}
+        sequence: !input dial_clockwise_actions
+# endregion DIAL CLOCKWISE
 
-          - action: light.turn_on
-            data:
-              brightness_step: "{{ step_size * dim_scale }}"
-            target:
-              entity_id: "{{ lights | select('is_state', 'on') | list }}"
-      # endregion DIAL CLOCKWISE
-
-      # region DIAL CCW
+# region DIAL CCW
       - conditions:
         - condition: trigger
           id: dial_counter_clockwise
-        sequence:
-          - variables:
-              step_size: "{{ -trigger.event.data.params.step_size }}"
-              <<: *lights_variable
-          # ZHA doesn't yet tell us which button is being held, and a held button shares the same command as a dial rotation,
-          # but the step_size will be -255
-          - if:
-              condition: template
-              alias: Button Long Press
-              value_template: "{{ step_size <= -225 }}" # -225 is the minimum value for the "brightness_step" property
-            then:
-              - action: light.turn_off
-                metadata: {}
-                target:
-                  entity_id: "{{ lights }}"
-            else:
-              - action: light.turn_on
-                data:
-                  brightness_step: "{{ step_size * dim_scale }}"
-                target:
-                  entity_id: "{{ lights | select('is_state', 'on') | list }}"
-      # endregion DIAL CCW
+        sequence: !input dial_counterclockwise_actions
+# endregion DIAL CCW
