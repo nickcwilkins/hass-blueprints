@@ -1,0 +1,310 @@
+blueprint:
+  name: Philips Hue Smart Button ZHA
+  description: |
+    A highly configurable automation blueprint for controlling the Philips Hue Smart Button via Zigbee Home Automation
+
+    By default, the automation will perform actions similar to the Philips Hue app. Each button press type has an associated input that can be overridden to perform arbitrary non-light related actions.
+  domain: automation
+  homeassistant:
+    min_version: 2024.11.0
+  input:
+    remote:
+      name: Philips Hue Smart Button
+      selector:
+        device:
+          filter:
+            integration: zha
+            manufacturer: Signify Netherlands B.V.
+            model: ROM001
+          multiple: false
+
+    dim_scale:
+      name: Dimming Scale
+      description:
+        A multiplier applied to the value received from the button to either slow or quicken dimming while holding the button.
+      default: 1.0
+      selector:
+        number:
+          min: 0.1
+          max: 3.0
+          step: 0.05
+          mode: slider
+    first_press_behavior:
+      name: First Press Behavior
+      description: |
+        Alter the behavior of what happens when a button is pressed the first time
+
+        toggle - Toggles the state of the lights
+        turn_on - Turns the lights on
+        scene - Turn on the first scene
+      default: toggle
+      selector:
+        select:
+          options:
+            - toggle
+            - turn_on
+            - scene
+
+    button_lights:
+      name: Lights
+      description: The light(s) controlled by the button
+      default: []
+      selector:
+        entity:
+          filter:
+            domain: light
+          multiple: true
+    scenes:
+      name: Scenes
+      description: Optional scenes to cycle through when pressing the button multiple times, up to a maximum of five. If "First Press Behavior" is not "scene", then only the first four are used.
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: scene
+
+    single_press:
+      name: Single Press
+      description: Actions to perform when the button is pressed once
+      selector:
+        action: {}
+      default:
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ first_press_behavior == 'toggle' }}"
+                  alias: If first press behavior is "toggle"
+              alias: Toggle
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: "{{ 'off' in lights | map('states', 'off') }}"
+                      alias: Any lights are off
+                  then:
+                    - action: light.turn_on
+                      metadata: {}
+                      data: {}
+                      target:
+                        entity_id: "{{ lights }}"
+                  else:
+                    - action: light.turn_off
+                      metadata: {}
+                      data: {}
+                      target:
+                        entity_id: "{{ lights }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ first_press_behavior == 'turn_on' }}"
+                  alias: If first press behavior is "turn on"
+              alias: Turn On
+              sequence:
+                - action: light.turn_on
+                  metadata: {}
+                  data: {}
+                  target:
+                    entity_id: "{{ lights }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ first_press_behavior == 'scene' and scene_index is not none and scenes[scene_index] is defined }}"
+              alias: Scene
+              sequence:
+                - action: scene.turn_on
+                  metadata: {}
+                  target:
+                    entity_id: "{{ scenes[scene_index] }}"
+    double_press:
+      name: Double Press
+      description: Actions to perform when the button is pressed twice
+      selector:
+        action: {}
+      default:
+        - if:
+            - condition: template
+              value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+              alias: Scene two is defined
+          alias: Button is pressed twice
+          then:
+            - action: scene.turn_on
+              alias: Activate Scene
+              metadata: {}
+              target:
+                entity_id: "{{ scenes[scene_index] }}"
+    triple_press:
+      name: Triple Press
+      description: Actions to perform when the button is pressed three times
+      selector:
+        action: {}
+      default:
+        - if:
+            - condition: template
+              value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+              alias: Scene three is defined
+          alias: Button is pressed three times
+          then:
+            - action: scene.turn_on
+              alias: Activate Scene
+              metadata: {}
+              target:
+                entity_id: "{{ scenes[scene_index] }}"
+    quadruple_press:
+      name: Quadruple Press
+      description: Actions to perform when the button is pressed four times
+      selector:
+        action: {}
+      default:
+        - if:
+            - condition: template
+              value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+              alias: Scene four is defined
+          alias: Button is pressed four times
+          then:
+            - action: scene.turn_on
+              alias: Activate Scene
+              metadata: {}
+              target:
+                entity_id: "{{ scenes[scene_index] }}"
+    quintuple_press:
+      name: Quintuple Press
+      description: Actions to perform when the button is pressed five times
+      selector:
+        action: {}
+      default:
+        - if:
+            - condition: template
+              value_template: "{{ scene_index is not none and scenes[scene_index] is defined }}"
+              alias: Scene five is defined
+          alias: Button is pressed five times
+          then:
+            - action: scene.turn_on
+              alias: Activate Scene
+              metadata: {}
+              target:
+                entity_id: "{{ scenes[scene_index] }}"
+    long_press:
+      name: Long Press
+      description: Actions to perform when the button is held
+      selector:
+        action: {}
+      default:
+        - action: light.turn_off
+          metadata: {}
+          data: {}
+          target:
+            entity_id: "{{ lights }}"
+
+  source_url: https://github.com/nickcwilkins/hass-blueprints/blob/main/hue/smart_button_zha.yaml
+mode: single
+max_exceeded: silent
+
+variables:
+  dim_scale: !input dim_scale
+  first_press_behavior: !input first_press_behavior
+  lights: !input button_lights
+  scenes: !input scenes
+
+triggers:
+  - trigger: event
+    id: single_press
+    alias: Single Press
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: press
+  - trigger: event
+    id: double_press
+    alias: Double Press
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: double_press
+  - trigger: event
+    id: triple_press
+    alias: Triple Press
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: triple_press
+  - trigger: event
+    id: quadruple_press
+    alias: Quadruple Press
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: quadruple_press
+  - trigger: event
+    id: quintuple_press
+    alias: Quintuple Press
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: quintuple_press
+  - trigger: event
+    id: long_release
+    alias: Long Release
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      args:
+        press_type: long_release
+
+actions:
+  - variables:
+      press_type: >
+        {% if 'args' in trigger.event.data and trigger.event.data.args is mapping and trigger.event.data.args.press_type is defined %}
+          {{ trigger.event.data.args.press_type }}
+        {% endif %}
+      scene_index: >
+        {% set scene_index = None %}
+        {% set scene_offset = 0 if first_press_behavior == 'scene' else -1 %}
+
+        {% if press_type == 'press' %}
+          {{ 0 + scene_offset }}
+        {% elif press_type == 'double_press' %}
+          {{ 1 + scene_offset }}
+        {% elif press_type == 'triple_press' %}
+          {{ 2 + scene_offset }}
+        {% elif press_type == 'quadruple_press' %}
+          {{ 3 + scene_offset }}
+        {% elif press_type == 'quintuple_press' %}
+          {{ 4 + scene_offset }}
+        {% else %}
+          None
+        {% endif %}
+        {{ scene_index }}
+  - choose:
+      - conditions:
+        - condition: trigger
+          id: single_press
+        alias: Single Press
+        sequence: !input single_press
+      - conditions:
+        - condition: trigger
+          id: double_press
+        alias: Double Press
+        sequence: !input double_press
+      - conditions:
+        - condition: trigger
+          id: triple_press
+        alias: Triple Press
+        sequence: !input triple_press
+      - conditions:
+        - condition: trigger
+          id: quadruple_press
+        alias: Quadruple Press
+        sequence: !input quadruple_press
+      - conditions:
+        - condition: trigger
+          id: quintuple_press
+        alias: Quintuple Press
+        sequence: !input quintuple_press
+      - conditions:
+        - condition: trigger
+          id: long_release
+        alias: Long Press
+        sequence: !input long_press
